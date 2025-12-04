@@ -268,7 +268,11 @@ class LinearAttention2(nn.Module):
 
         kv = torch.einsum('...sd,...se->...de', k, v)
         z = 1.0 / torch.einsum('...sd,...d->...s', q, k.sum(dim=-2))
-        x = torch.einsum('...de,...sd,...s->...se', kv, q, z)
+
+        # x = torch.einsum('...de,...sd,...s->...se', kv, q, z)  #xms
+        y = torch.einsum('...de,...sd->...se', kv, q)  # [..., s, e]
+        x = torch.einsum('...se,...s->...se', y, z)  # 等价于 y * z[..., None]
+
         x = x.transpose(1, 2).reshape(B, N, C)
 
         x = self.proj(x)

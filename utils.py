@@ -21,6 +21,7 @@ import math
 
 import pickle
 
+
 def modify_grad(x, inds, factor=0.):
     inds = inds.expand_as(x)
     x[inds] *= factor
@@ -255,9 +256,9 @@ def cal_anomaly_map_v2(fs_list, ft_list, out_size=224, amap_mode='add'):
 
 
 def show_cam_on_image(img, anomaly_map):
-    cam = np.float32(anomaly_map) / 255 + np.float32(img) / 255
-    cam = cam / np.max(cam)
-    return np.uint8(255 * cam)
+    cam = cv2.addWeighted(img, 0.6, anomaly_map, 0.4, 0)
+    cam = np.where(np.any(anomaly_map > 0), cam, img)
+    return cam
 
 
 def min_max_norm(image):
@@ -352,7 +353,7 @@ def evaluation_batch(model, dataloader, device, _class_=None, max_ratio=0, resiz
     pr_list_sp = []
     gaussian_kernel = get_gaussian_kernel(kernel_size=5, sigma=4).to(device)
 
-    starter, ender = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
+    # starter, ender = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
 
     with torch.no_grad():
         for img, gt, label, img_path in dataloader:
@@ -516,37 +517,62 @@ def evaluation_uniad(model, dataloader, device, _class_=None, reg_calib=False, m
     return auroc_px, auroc_sp, ap_px, ap_sp, [gt_list_px, pr_list_px, gt_list_sp, pr_list_sp]
 
 
-def visualize(model, dataloader, device, _class_='None', save_name='save'):
+def visualize(model, dataloader, device, _class_='None', save_path='save', max_ratio=0.01):
     model.eval()
-    save_dir = os.path.join('./visualize', save_name)
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
+    save_dir = os.path.join(save_path, 'visualize')
+    save_dir_class = os.path.join(save_dir, str(_class_))
+    os.makedirs(save_dir_class, exist_ok=True)
+
     gaussian_kernel = get_gaussian_kernel(kernel_size=5, sigma=4).to(device)
+
+    results = list()
 
     with torch.no_grad():
         for img, gt, label, img_path in dataloader:
             img = img.to(device)
-            output = model(img)
-            en, de = output[0], output[1]
-            anomaly_map, _ = cal_anomaly_maps(en, de, img.shape[-1])
+            anomaly_map = model(img)
             anomaly_map = gaussian_kernel(anomaly_map)
 
-            for i in range(0, anomaly_map.shape[0], 8):
-                heatmap = min_max_norm(anomaly_map[i, 0].cpu().numpy())
-                heatmap = cvt2heatmap(heatmap * 255)
+            if max_ratio == 0:
+                sp_score = torch.max(anomaly_map.flatten(1), dim=1)[0]
+            else:
+                score_map = anomaly_map.flatten(1)
+                sp_score = torch.sort(score_map, dim=1, descending=True)[0][:, :int(score_map.shape[1] * max_ratio)]
+                sp_score = sp_score.mean(dim=1)
+
+            for i in range(0, anomaly_map.shape[0]):
+                fake = float(sp_score[i].cpu().data)
+
+                max_anomal = float(anomaly_map[i, 0].max())
+
+                heatmap = min_max_norm(anomaly_map[i, 0].cpu().numpy()) * 255
+                cv2heatmap = cvt2heatmap(heatmap)
                 im = img[i].permute(1, 2, 0).cpu().numpy()
-                im = im * np.array([0.229, 0.224, 0.225]) + np.array([0.485, 0.456, 0.406])
+                # im = im * np.array([0.229, 0.224, 0.225]) + np.array([0.485, 0.456, 0.406])
                 im = (im * 255).astype('uint8')
                 im = im[:, :, ::-1]
-                hm_on_img = show_cam_on_image(im, heatmap)
+
+                cv2hm_on_img = show_cam_on_image(im, cv2heatmap)
+
+                tmp = np.zeros_like(im)
+                tmp[..., 0] = heatmap
+                hm_on_img = show_cam_on_image(im, tmp)
+
                 mask = (gt[i][0].numpy() * 255).astype('uint8')
-                save_dir_class = os.path.join(save_dir, str(_class_))
-                if not os.path.exists(save_dir_class):
-                    os.mkdir(save_dir_class)
+                tmp[..., 0] = mask
+                mask_on_img = show_cam_on_image(im, tmp)
+                show = np.concatenate([mask_on_img, hm_on_img, cv2hm_on_img], axis=1)
+
                 name = img_path[i].split('/')[-2] + '_' + img_path[i].split('/')[-1].replace('.png', '')
-                cv2.imwrite(save_dir_class + '/' + name + '_img.png', im)
-                cv2.imwrite(save_dir_class + '/' + name + '_cam.png', hm_on_img)
-                cv2.imwrite(save_dir_class + '/' + name + '_gt.png', mask)
+                h, w, c = show.shape
+                cv2.putText(show, f'{fake:.3f}-{label[i]}-{max_anomal:.3f}', (w // 2, h // 2), 1, 2, (0, 0, 255), 2)
+                cv2.imwrite(save_dir_class + '/' + name + '_heat.png', show)
+                results.append((name, fake, label[i], max_anomal))
+
+    with open(f'{save_dir_class}/result.csv', mode='w') as f:
+        f.write('name,fake,label,max_anomal\n')
+        for name, fake, label, max_anomal in results:
+            f.write(f'{name},{fake:.3f},{label},{max_anomal:.3f}\n')
 
     return
 
@@ -666,7 +692,7 @@ def compute_pro(masks: ndarray, amaps: ndarray, num_th: int = 200) -> None:
     assert isinstance(num_th, int), "type(num_th) must be int"
 
     df = pd.DataFrame([], columns=["pro", "fpr", "threshold"])
-    binary_amaps = np.zeros_like(amaps, dtype=np.bool)
+    binary_amaps = np.zeros_like(amaps, dtype=np.bool_)
 
     min_th = amaps.min()
     max_th = amaps.max()

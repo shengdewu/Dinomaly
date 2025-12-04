@@ -16,18 +16,19 @@ import json
 torch.multiprocessing.set_sharing_strategy('file_system')
 
 
-def get_data_transforms(size, isize, mean_train=None, std_train=None):
-    mean_train = [0.485, 0.456, 0.406] if mean_train is None else mean_train
-    std_train = [0.229, 0.224, 0.225] if std_train is None else std_train
+def get_data_transforms(size, isize=None, mean_train=None, std_train=None):
+    # mean_train = [0.485, 0.456, 0.406] if mean_train is None else mean_train
+    # std_train = [0.229, 0.224, 0.225] if std_train is None else std_train
     data_transforms = transforms.Compose([
-        transforms.Resize((size, size)),
+        transforms.Resize(size),
         transforms.ToTensor(),
-        transforms.CenterCrop(isize),
-        transforms.Normalize(mean=mean_train,
-                             std=std_train)])
+        # transforms.CenterCrop(isize),
+        # transforms.Normalize(mean=mean_train,
+        #                      std=std_train)
+        ])
     gt_transforms = transforms.Compose([
-        transforms.Resize((size, size)),
-        transforms.CenterCrop(isize),
+        transforms.Resize(size),
+        # transforms.CenterCrop(isize),
         transforms.ToTensor()])
     return data_transforms, gt_transforms
 
@@ -72,7 +73,8 @@ class MVTecDataset(torch.utils.data.Dataset):
             if defect_type == 'good':
                 img_paths = glob.glob(os.path.join(self.img_path, defect_type) + "/*.png") + \
                             glob.glob(os.path.join(self.img_path, defect_type) + "/*.JPG") + \
-                            glob.glob(os.path.join(self.img_path, defect_type) + "/*.bmp")
+                            glob.glob(os.path.join(self.img_path, defect_type) + "/*.bmp") + \
+                            glob.glob(os.path.join(self.img_path, defect_type) + "/*.jpg")
                 img_tot_paths.extend(img_paths)
                 gt_tot_paths.extend([0] * len(img_paths))
                 tot_labels.extend([0] * len(img_paths))
@@ -80,7 +82,9 @@ class MVTecDataset(torch.utils.data.Dataset):
             else:
                 img_paths = glob.glob(os.path.join(self.img_path, defect_type) + "/*.png") + \
                             glob.glob(os.path.join(self.img_path, defect_type) + "/*.JPG") + \
-                            glob.glob(os.path.join(self.img_path, defect_type) + "/*.bmp")
+                            glob.glob(os.path.join(self.img_path, defect_type) + "/*.bmp") + \
+                            glob.glob(os.path.join(self.img_path, defect_type) + "/*.jpg")
+
                 gt_paths = glob.glob(os.path.join(self.gt_path, defect_type) + "/*.png")
                 img_paths.sort()
                 gt_paths.sort()
@@ -101,12 +105,12 @@ class MVTecDataset(torch.utils.data.Dataset):
         img = Image.open(img_path).convert('RGB')
         img = self.transform(img)
         if label == 0:
-            gt = torch.zeros([1, img.size()[-2], img.size()[-2]])
+            gt = torch.zeros([1, img.size()[-2], img.size()[-1]])
         else:
             gt = Image.open(gt)
             gt = self.gt_transform(gt)
 
-        assert img.size()[1:] == gt.size()[1:], "image.size != gt.size !!!"
+        assert img.size()[1:] == gt.size()[1:], f"image{img.size()} != gt{gt.size()} !!!"
 
         return img, gt, label, img_path
 

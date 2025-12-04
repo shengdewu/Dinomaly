@@ -33,8 +33,10 @@ class ViTill(nn.Module):
         if not hasattr(self.encoder, 'num_register_tokens'):
             self.encoder.num_register_tokens = 0
         self.mask_neighbor_size = mask_neighbor_size
+        return
 
     def forward(self, x):
+        in_size = x.shape[2:]
 
         en_list = self.encoder.get_intermediate_layers(x, n=self.target_layers, norm=False)
 
@@ -62,8 +64,57 @@ class ViTill(nn.Module):
         en = [e.permute(0, 2, 1).reshape([x.shape[0], -1, side, side]).contiguous() for e in en]
         de = [d.permute(0, 2, 1).reshape([x.shape[0], -1, side, side]).contiguous() for d in de]
 
-        return en, de
+        if self.training:
+            return en, de
+        else:
+            return self.cal_anomaly_maps(en, de, in_size)
 
+    def cosine_similarity(self, a: torch.Tensor, b: torch.Tensor, dim: int = -1, eps: float = 1e-8) -> torch.Tensor:
+        """
+        与 torch.nn.functional.cosine_similarity 完全对齐的余弦相似度实现
+        仅支持逐对相似度计算（a 和 b 形状必须完全一致）
+        :param a: 输入张量 A（形状任意，如 (N,D)、(B,N,D)、(B,C,H,W)）
+        :param b: 输入张量 B（形状必须与 a 完全一致）
+        :param dim: 计算余弦相似度的维度（默认最后一维）
+        :param eps: 微小值，避免分母为 0（数值稳定性）
+        :return: 逐对余弦相似度张量（形状为 a 去除 dim 后的维度）
+        """
+        # 1. 验证输入形状一致性（与内置函数行为一致）
+        if a.shape != b.shape:
+            raise ValueError(f"张量 a 和 b 形状必须一致！a.shape={a.shape}, b.shape={b.shape}")
+
+        # 2. 计算点积（逐对元素相乘后在 dim 维度求和，即 a·b）
+        dot_product = torch.sum(a * b, dim=dim)
+
+        # 3. 计算 a 和 b 的 L2 范数（||a||, ||b||）
+        norm_a = torch.norm(a, p=2, dim=dim)
+        norm_b = torch.norm(b, p=2, dim=dim)
+
+        # 4. 计算分母（||a|| × ||b||），添加 eps 避免除零（数值稳定性）
+        norm_product = norm_a * norm_b
+        # 确保分母 ≥ eps（避免极小值导致的数值错误，与内置函数逻辑一致）
+        norm_product = torch.clamp(norm_product, min=eps)
+
+        # 5. 计算余弦相似度
+        similarity = dot_product / norm_product
+
+        # 6. 裁剪结果到 [-1, 1]（修正浮点运算误差，内置函数未做但建议补充）
+        similarity = torch.clamp(similarity, min=-1.0, max=1.0)
+
+        return similarity
+
+    def cal_anomaly_maps(self, fs_list, ft_list, out_size):
+        a_map_list = []
+        for i in range(len(ft_list)):
+            fs = fs_list[i]
+            ft = ft_list[i]
+            # a_map = 1 - F.cosine_similarity(fs, ft) #Ascend 环境下有问题
+            a_map = 1 - self.cosine_similarity(fs, ft, dim=1)
+            a_map = torch.unsqueeze(a_map, dim=1)
+            a_map = F.interpolate(a_map, size=out_size, mode='bilinear', align_corners=True)
+            a_map_list.append(a_map)
+        anomaly_map = torch.cat(a_map_list, dim=1).mean(dim=1, keepdim=True)
+        return anomaly_map
 
     def fuse_feature(self, feat_list):
         return torch.stack(feat_list, dim=1).mean(dim=1)
@@ -158,6 +209,7 @@ class ViTillCat(nn.Module):
 
     def fuse_feature(self, feat_list):
         return torch.stack(feat_list, dim=1).mean(dim=1)
+
 
 class ViTAD(nn.Module):
     def __init__(
