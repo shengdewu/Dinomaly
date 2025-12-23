@@ -5,32 +5,25 @@
 
 import torch
 import torch.nn as nn
-from dataset import get_data_transforms, get_strong_transforms
+from dataset import get_data_transforms
 from torchvision.datasets import ImageFolder
 import numpy as np
 import random
 import os
-from torch.utils.data import DataLoader, ConcatDataset
+from torch.utils.data import ConcatDataset
 
 from models.uad import ViTill, ViTillv2
-from models import vit_encoder
 from dinov1.utils import trunc_normal_
 from models.vision_transformer import Block as VitBlock, bMlp, Attention, LinearAttention, \
     LinearAttention2, ConvBlock, FeatureJitter
 from dataset import MVTecDataset
-import torch.backends.cudnn as cudnn
-import argparse
 from utils import evaluation_batch, global_cosine, regional_cosine_hm_percent, global_cosine_hm_percent, \
     WarmCosineScheduler
-from torch.nn import functional as F
 from functools import partial
 from optimizers import StableAdamW, AdamW
 import torch.optim as optim
 import warnings
-import copy
 import logging
-from sklearn.metrics import roc_auc_score, average_precision_score
-import itertools
 import math
 
 from utils import visualize
@@ -91,13 +84,12 @@ def setup_seed(seed):
     torch.backends.cudnn.benchmark = False
 
 
-def train(item_list, save_path):
+def train(item_list, save_path, image_size=512):
     setup_seed(1)
 
     total_iters = 20000
     check = 1000
     batch_size = 16
-    image_size = 512
     lr = 2e-4
     save_iter = 10000
 
@@ -179,11 +171,6 @@ def train(item_list, save_path):
 
     total_epoch = int(np.ceil(total_iters / len(train_dataloader)))
     save_epoch = int(np.ceil(save_iter / len(train_dataloader)))
-
-    now = datetime.now()
-    save_time = now.strftime("%Y%m%d-%H%M%S")
-    save_path = f'{save_path}/{save_time}'
-    os.makedirs(save_path, exist_ok=True)
 
     print_fn('total epoch {} train image number:{}; save epoch {}'.format(total_epoch, len(train_data), save_epoch))
 
@@ -293,7 +280,7 @@ if __name__ == '__main__':
     parser.add_argument('--data_path', type=str, default='/mnt/sda/datasets/皮带异常数据集合/MVTec-AD-Style')
     parser.add_argument('--save_dir', type=str, default='./saved_results')
     parser.add_argument('--save_name', type=str, default='vitill_mvtec_uni_dinov3_base')
-    parser.add_argument('--item_name', type=str, default='part-pd-clahe3')
+    parser.add_argument('--item_name', type=str, default='pdseg-clahe-region')
     args = parser.parse_args()
 
     # item_list = ['carpet', 'grid', 'leather', 'tile', 'wood', 'bottle', 'cable', 'capsule',
@@ -301,11 +288,16 @@ if __name__ == '__main__':
 
     item_list = [args.item_name]
 
-    save_path = f'{args.save_dir}/{args.save_name}/{args.item_name}'
+    image_size = (512, 512)
+
+    now = datetime.now()
+    save_time = now.strftime("%Y%m%d-%H%M%S")
+    save_path = f'{args.save_dir}/{args.save_name}/{args.item_name}/{image_size}/{save_time}'
     os.makedirs(save_path, exist_ok=True)
+
     logger = get_logger(args.save_name, save_path)
     print_fn = logger.info
 
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     print_fn(device)
-    train(item_list, save_path)
+    train(item_list, save_path, image_size)
