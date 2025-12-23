@@ -1,11 +1,12 @@
 import random
 
 from torchvision import transforms
+from torchvision.transforms import functional as F
 from PIL import Image
 import os
 import torch
 import glob
-from torchvision.datasets import MNIST, CIFAR10, FashionMNIST, ImageFolder
+from collections.abc import Sequence
 import numpy as np
 import torch.multiprocessing
 import json
@@ -16,16 +17,63 @@ import json
 torch.multiprocessing.set_sharing_strategy('file_system')
 
 
+class ResizePad(torch.nn.Module):
+    def __init__(self, size, interpolation=transforms.InterpolationMode.BILINEAR, max_size=None, antialias=True):
+        super().__init__()
+        if not isinstance(size, (int, Sequence)):
+            raise TypeError(f"Size should be int or sequence. Got {type(size)}")
+        if isinstance(size, Sequence) and len(size) not in (1, 2):
+            raise ValueError("If size is a sequence, it should have 1 or 2 values")
+        self.size = size
+        self.max_size = max_size
+        self.interpolation = interpolation
+        self.antialias = antialias
+
+    def forward(self, img):
+        """
+        Args:
+            img (PIL Image or Tensor): Image to be scaled.
+
+        Returns:
+            PIL Image or Tensor: Rescaled image.
+        """
+
+        if isinstance(self.size, int):
+            _, image_height, image_width = F.get_dimensions(img)
+            size = (self.size, int(image_width * self.size / image_height)) if image_height > image_width else (
+                    int(image_height * self.size / image_width), self.size)
+        else:
+            size = self.size
+        new_img = F.resize(img, size, self.interpolation, self.max_size, self.antialias)
+        _, image_height, image_width = F.get_dimensions(new_img)
+
+        out_size = max(image_width, image_height)
+
+        h_offset = out_size - image_height
+        w_offset = out_size - image_width
+
+        left = w_offset // 2
+        right = w_offset - left
+        top = h_offset // 2
+        bottom = h_offset - top
+        return F.pad(new_img, [left, top, right, bottom], fill=0, padding_mode="constant")
+
+    def __repr__(self) -> str:
+        detail = f"(size={self.size}, interpolation={self.interpolation.value}, max_size={self.max_size}, antialias={self.antialias})"
+        return f"{self.__class__.__name__}{detail}"
+
+
 def get_data_transforms(size, isize=None, mean_train=None, std_train=None):
     # mean_train = [0.485, 0.456, 0.406] if mean_train is None else mean_train
     # std_train = [0.229, 0.224, 0.225] if std_train is None else std_train
     data_transforms = transforms.Compose([
-        transforms.Resize(size),
+        ResizePad(size),
+        transforms.ColorJitter(0.3, 0.2, 0.),
         transforms.ToTensor(),
         # transforms.CenterCrop(isize),
         # transforms.Normalize(mean=mean_train,
         #                      std=std_train)
-        ])
+    ])
     gt_transforms = transforms.Compose([
         transforms.Resize(size),
         # transforms.CenterCrop(isize),

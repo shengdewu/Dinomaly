@@ -359,13 +359,13 @@ def evaluation_batch(model, dataloader, device, _class_=None, max_ratio=0, resiz
         for img, gt, label, img_path in dataloader:
             img = img.to(device)
             # starter.record()
-            output = model(img)
+            anomaly_map = model(img)
             # ender.record()
             # torch.cuda.synchronize()
             # curr_time = starter.elapsed_time(ender)
-            en, de = output[0], output[1]
-
-            anomaly_map, _ = cal_anomaly_maps(en, de, img.shape[-1])
+            # en, de = output[0], output[1]
+            #
+            # anomaly_map, _ = cal_anomaly_maps(en, de, img.shape[-1])
             # anomaly_map = anomaly_map - anomaly_map.mean(dim=[1, 2, 3]).view(-1, 1, 1, 1)
 
             if resize_mask is not None:

@@ -33,7 +33,6 @@ from sklearn.metrics import roc_auc_score, average_precision_score
 import itertools
 import math
 
-
 from utils import visualize
 from datetime import datetime
 from dinov3.hub.backbones import load_dinov3_model
@@ -95,14 +94,14 @@ def setup_seed(seed):
 def train(item_list, save_path):
     setup_seed(1)
 
-    total_iters = 10000
-    check = 500
-    batch_size = 2
-    image_size = (512, 128)
-    crop_size = 448
+    total_iters = 20000
+    check = 1000
+    batch_size = 16
+    image_size = 512
     lr = 2e-4
+    save_iter = 10000
 
-    data_transform, gt_transform = get_data_transforms(image_size, crop_size)
+    data_transform, gt_transform = get_data_transforms(image_size)
 
     train_data_list = []
     test_data_list = []
@@ -172,14 +171,22 @@ def train(item_list, save_path):
             nn.init.constant_(m.weight, 1.0)
 
     optimizer = AdamW([{'params': trainable.parameters()}],
-                        lr=lr, betas=(0.9, 0.999), weight_decay=1e-4, amsgrad=False, eps=1e-10)
+                      lr=lr, betas=(0.9, 0.999), weight_decay=1e-4, amsgrad=False, eps=1e-10)
     lr_scheduler = WarmCosineScheduler(optimizer, base_value=lr, final_value=lr * 0.05, total_iters=total_iters,
-                                      warmup_iters=100)
+                                       warmup_iters=100)
 
     # lr_scheduler = WarmupCosineAnnealingLR(optimizer, warmup_epochs=100, max_epochs=total_iters, eta_min=1e-7)
 
     total_epoch = int(np.ceil(total_iters / len(train_dataloader)))
-    print_fn('epoch {} train image number:{}'.format(total_epoch, len(train_data)))
+    save_epoch = int(np.ceil(save_iter / len(train_dataloader)))
+
+    now = datetime.now()
+    save_time = now.strftime("%Y%m%d-%H%M%S")
+    save_path = f'{save_path}/{save_time}'
+    os.makedirs(save_path, exist_ok=True)
+
+    print_fn('total epoch {} train image number:{}; save epoch {}'.format(total_epoch, len(train_data), save_epoch))
+
     it = 0
     for epoch in range(total_epoch):
         model.train()
@@ -265,12 +272,10 @@ def train(item_list, save_path):
         now = now.strftime("%Y-%m-%d %H:%M:%S")
         print_fn('{} iter [{}/{}], loss:{:.4f}, lr:{:.6f}'.format(now, it, total_iters, np.mean(loss_list), current_lr))
 
-    model.eval()
-    now = datetime.now()
-    save_time = now.strftime("%Y%m%d-%H%M%S")
-    save_path = f'{save_path}/{save_time}'
-    os.makedirs(save_path, exist_ok=True)
+        if epoch % save_epoch == 0:
+            torch.save(model.state_dict(), os.path.join(save_path, f'model-{epoch}.pth'))
 
+    model.eval()
     for item, test_data in zip(item_list, test_data_list):
         test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=False,
                                                       num_workers=2)
@@ -285,10 +290,10 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument('--data_path', type=str, default='/data/user_home/baoyong/dataset/皮带异常数据集合/MVTec-AD-Style')
+    parser.add_argument('--data_path', type=str, default='/mnt/sda/datasets/皮带异常数据集合/MVTec-AD-Style')
     parser.add_argument('--save_dir', type=str, default='./saved_results')
     parser.add_argument('--save_name', type=str, default='vitill_mvtec_uni_dinov3_base')
-    parser.add_argument('--item_name', type=str, default='part2-10-box-edge')
+    parser.add_argument('--item_name', type=str, default='part-pd-clahe3')
     args = parser.parse_args()
 
     # item_list = ['carpet', 'grid', 'leather', 'tile', 'wood', 'bottle', 'cable', 'capsule',

@@ -213,7 +213,7 @@ def test(item_list):
         return
 
     batch_size = 8
-    image_size = (512, 512)
+    image_size = (448, 448)
 
     data_transform, gt_transform = get_data_transforms(image_size)
 
@@ -312,10 +312,10 @@ if __name__ == '__main__':
     parser.add_argument('--data_path', type=str, default='/mnt/sda/datasets/皮带异常数据集合/MVTec-AD-Style')
     parser.add_argument('--save_name', type=str, default='part2-box-all')
     parser.add_argument('--weight', type=str,
-                        default='saved_results/vitill_mvtec_uni_dinov3_base/part2-box/20251125-223727/model.pth')
+                        default='saved_results/vitill_mvtec_uni_dinov3_base/part-pd-clahe3/20251217-101558/model.pth')
     args = parser.parse_args()
 
-    item_list = ['part2-box']
+    item_list = ['part-pd-clahe3']
 
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     test(item_list)
