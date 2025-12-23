@@ -75,7 +75,7 @@ def get_data_transforms(size, isize=None, mean_train=None, std_train=None):
         #                      std=std_train)
     ])
     gt_transforms = transforms.Compose([
-        transforms.Resize(size),
+        ResizePad(size),
         # transforms.CenterCrop(isize),
         transforms.ToTensor()])
     return data_transforms, gt_transforms
