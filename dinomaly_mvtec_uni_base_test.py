@@ -206,14 +206,13 @@ class DinomalyModel(nn.Module):
         return anomaly_map
 
 
-def test(item_list):
+def test(item_list, image_size):
     setup_seed(1)
 
     if not os.path.exists(args.weight):
         return
 
     batch_size = 8
-    image_size = (448, 448)
 
     data_transform, gt_transform = get_data_transforms(image_size)
 
@@ -267,7 +266,11 @@ def test(item_list):
     model = model.to(device)
     model.eval()
 
-    in_shape = [1, 3] + list(image_size)
+    if isinstance(image_size, int):
+        in_shape = [1, 3] + [image_size, image_size]
+    else:
+        in_shape = [1, 3] + list(image_size)
+
     im = torch.zeros(in_shape).to(device)
     export_onnx(model, im, args.weight, 17, False, False)
 
@@ -310,12 +313,14 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('--data_path', type=str, default='/mnt/sda/datasets/皮带异常数据集合/MVTec-AD-Style')
-    parser.add_argument('--save_name', type=str, default='part2-box-all')
+    parser.add_argument('--save_name', type=str, default='saved_test')
     parser.add_argument('--weight', type=str,
-                        default='saved_results/vitill_mvtec_uni_dinov3_base/part-pd-clahe3/20251217-101558/model.pth')
+                        default='saved_results/vitill_mvtec_uni_dinov3_base/pdseg-clahe-region/(512, 512)/20251223-114121/model.pth')
     args = parser.parse_args()
 
-    item_list = ['part-pd-clahe3']
+    item_list = ['pdseg-clahe-region']
+
+    image_size = (512, 512)
 
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-    test(item_list)
+    test(item_list, image_size)

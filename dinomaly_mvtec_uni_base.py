@@ -87,9 +87,9 @@ def setup_seed(seed):
 def train(item_list, save_path, image_size=512):
     setup_seed(1)
 
-    total_iters = 20000
+    total_iters = 25000
     check = 1000
-    batch_size = 16
+    batch_size = 8
     lr = 2e-4
     save_iter = 10000
 
