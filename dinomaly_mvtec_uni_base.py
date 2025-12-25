@@ -92,6 +92,7 @@ def train(item_list, save_path, image_size=512):
     batch_size = 8
     lr = 2e-4
     save_iter = 10000
+    num_workers = 6
 
     data_transform, gt_transform = get_data_transforms(image_size)
 
@@ -112,7 +113,7 @@ def train(item_list, save_path, image_size=512):
         test_data_list.append(test_data)
 
     train_data = ConcatDataset(train_data_list)
-    train_dataloader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=4,
+    train_dataloader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=num_workers,
                                                    drop_last=True)
 
     target_layers = [2, 3, 4, 5, 6, 7, 8, 9]
@@ -292,7 +293,9 @@ if __name__ == '__main__':
 
     now = datetime.now()
     save_time = now.strftime("%Y%m%d-%H%M%S")
-    save_path = f'{args.save_dir}/{args.save_name}/{args.item_name}/{image_size}/{save_time}'
+    img_size_str = str(image_size)
+    img_size_str = img_size_str.replace('(', '').replace(')', '').replace(',', '-').replace(' ', '')
+    save_path = f'{args.save_dir}/{args.save_name}/{args.item_name}/{img_size_str}/{save_time}'
     os.makedirs(save_path, exist_ok=True)
 
     logger = get_logger(args.save_name, save_path)
