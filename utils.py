@@ -517,11 +517,10 @@ def evaluation_uniad(model, dataloader, device, _class_=None, reg_calib=False, m
     return auroc_px, auroc_sp, ap_px, ap_sp, [gt_list_px, pr_list_px, gt_list_sp, pr_list_sp]
 
 
-def visualize(model, dataloader, device, _class_='None', save_path='save', max_ratio=0.01):
+def visualize(model, dataloader, device, save_path='save', max_ratio=0.01):
     model.eval()
     save_dir = os.path.join(save_path, 'visualize')
-    save_dir_class = os.path.join(save_dir, str(_class_))
-    os.makedirs(save_dir_class, exist_ok=True)
+    os.makedirs(save_dir, exist_ok=True)
 
     gaussian_kernel = get_gaussian_kernel(kernel_size=5, sigma=4).to(device)
 
@@ -566,10 +565,10 @@ def visualize(model, dataloader, device, _class_='None', save_path='save', max_r
                 name = img_path[i].split('/')[-2] + '_' + img_path[i].split('/')[-1].replace('.png', '')
                 h, w, c = show.shape
                 cv2.putText(show, f'{fake:.3f}-{label[i]}-{max_anomal:.3f}', (w // 2, h // 2), 1, 2, (0, 0, 255), 2)
-                cv2.imwrite(save_dir_class + '/' + name + '_heat.png', show)
+                cv2.imwrite(save_dir + '/' + name + '_heat.png', show)
                 results.append((name, fake, label[i], max_anomal))
 
-    with open(f'{save_dir_class}/result.csv', mode='w') as f:
+    with open(f'{save_dir}/result.csv', mode='w') as f:
         f.write('name,fake,label,max_anomal\n')
         for name, fake, label, max_anomal in results:
             f.write(f'{name},{fake:.3f},{label},{max_anomal:.3f}\n')

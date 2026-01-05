@@ -84,12 +84,12 @@ def setup_seed(seed):
     torch.backends.cudnn.benchmark = False
 
 
-def train(item_list, save_path, image_size=512):
+def train(item_list, save_path, image_size=(512, 512)):
     setup_seed(1)
 
-    total_iters = 25000
+    total_iters = 20000
     check = 1000
-    batch_size = 8
+    batch_size = 16
     lr = 2e-4
     save_iter = 10000
     num_workers = 6
@@ -113,7 +113,8 @@ def train(item_list, save_path, image_size=512):
         test_data_list.append(test_data)
 
     train_data = ConcatDataset(train_data_list)
-    train_dataloader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=num_workers,
+    train_dataloader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True,
+                                                   num_workers=num_workers,
                                                    drop_last=True)
 
     target_layers = [2, 3, 4, 5, 6, 7, 8, 9]
@@ -268,7 +269,7 @@ def train(item_list, save_path, image_size=512):
         test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=False,
                                                       num_workers=2)
 
-        visualize(model, test_dataloader, device, _class_=args.item_name, save_path=save_path)
+        visualize(model, test_dataloader, device, save_path=save_path)
 
     torch.save(model.state_dict(), os.path.join(save_path, 'model.pth'))
     return
@@ -278,16 +279,11 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument('--data_path', type=str, default='/mnt/sda/datasets/皮带异常数据集合/MVTec-AD-Style')
+    parser.add_argument('--data_path', type=str, default='/mnt/sda/datasets/皮带异常数据集合/MVTec-AD-Style/pdseg-clahe')
     parser.add_argument('--save_dir', type=str, default='./saved_results')
     parser.add_argument('--save_name', type=str, default='vitill_mvtec_uni_dinov3_base')
-    parser.add_argument('--item_name', type=str, default='pdseg-clahe-region')
+    parser.add_argument('--item_list', type=str, nargs="+", default=['region1', 'region2'], help="输入任意个数据，用空格分隔")
     args = parser.parse_args()
-
-    # item_list = ['carpet', 'grid', 'leather', 'tile', 'wood', 'bottle', 'cable', 'capsule',
-    #              'hazelnut', 'metal_nut', 'pill', 'screw', 'toothbrush', 'transistor', 'zipper']
-
-    item_list = [args.item_name]
 
     image_size = (512, 512)
 
@@ -295,7 +291,7 @@ if __name__ == '__main__':
     save_time = now.strftime("%Y%m%d-%H%M%S")
     img_size_str = str(image_size)
     img_size_str = img_size_str.replace('(', '').replace(')', '').replace(',', '-').replace(' ', '')
-    save_path = f'{args.save_dir}/{args.save_name}/{args.item_name}/{img_size_str}/{save_time}'
+    save_path = f'{args.save_dir}/{args.save_name}/{img_size_str}/{save_time}'
     os.makedirs(save_path, exist_ok=True)
 
     logger = get_logger(args.save_name, save_path)
@@ -303,4 +299,4 @@ if __name__ == '__main__':
 
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     print_fn(device)
-    train(item_list, save_path, image_size)
+    train(args.item_list, save_path, image_size)

@@ -315,7 +315,7 @@ if __name__ == '__main__':
     parser.add_argument('--data_path', type=str, default='/mnt/sda/datasets/皮带异常数据集合/MVTec-AD-Style')
     parser.add_argument('--save_name', type=str, default='saved_test')
     parser.add_argument('--weight', type=str,
-                        default='saved_results/vitill_mvtec_uni_dinov3_base/pdseg-clahe-region/(512, 512)/20251223-114121/model.pth')
+                        default='saved_results/vitill_mvtec_uni_dinov3_base//model.pth')
     args = parser.parse_args()
 
     item_list = ['pdseg-clahe-region']
