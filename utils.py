@@ -357,6 +357,8 @@ def evaluation_batch(model, dataloader, device, _class_=None, max_ratio=0, resiz
 
     with torch.no_grad():
         for img, gt, label, img_path in dataloader:
+            if torch.sum(gt) == 0:
+                continue
             img = img.to(device)
             # starter.record()
             anomaly_map = model(img)
@@ -389,6 +391,9 @@ def evaluation_batch(model, dataloader, device, _class_=None, max_ratio=0, resiz
                 sp_score = torch.sort(anomaly_map, dim=1, descending=True)[0][:, :int(anomaly_map.shape[1] * max_ratio)]
                 sp_score = sp_score.mean(dim=1)
             pr_list_sp.append(sp_score)
+
+        if len(gt_list_px) == 0:
+            return [1, 1, 1, 1, 1, 1, 1]
 
         gt_list_px = torch.cat(gt_list_px, dim=0)[:, 0].cpu().numpy()
         pr_list_px = torch.cat(pr_list_px, dim=0)[:, 0].cpu().numpy()
