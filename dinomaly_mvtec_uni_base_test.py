@@ -274,8 +274,8 @@ def test(item_list, image_size):
     im = torch.zeros(in_shape).to(device)
     export_onnx(model, im, args.weight, 17, False, False)
 
-    now = datetime.now()
-    save_time = now.strftime("%Y%m%d%H%M%S")
+    # now = datetime.now()
+    # save_time = now.strftime("%Y%m%d%H%M%S")
 
     auroc_sp_list, ap_sp_list, f1_sp_list = [], [], []
     auroc_px_list, ap_px_list, f1_px_list, aupro_px_list = [], [], [], []
@@ -303,7 +303,7 @@ def test(item_list, image_size):
         #         np.mean(auroc_sp_list), np.mean(ap_sp_list), np.mean(f1_sp_list),
         #         np.mean(auroc_px_list), np.mean(ap_px_list), np.mean(f1_px_list), np.mean(aupro_px_list)))
 
-        visualize(model, test_dataloader, device, _class_=item, save_path=f'{args.save_name}')
+        visualize(model, test_dataloader, device, save_path=f'{args.save_dir}')
 
     return
 
@@ -312,15 +312,13 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument('--data_path', type=str, default='/mnt/sda/datasets/皮带异常数据集合/MVTec-AD-Style')
-    parser.add_argument('--save_name', type=str, default='saved_test')
-    parser.add_argument('--weight', type=str,
-                        default='saved_results/vitill_mvtec_uni_dinov3_base//model.pth')
+    parser.add_argument('--data_path', type=str, default='/mnt/sda/datasets/皮带异常数据集合/MVTec-AD-Style/pdseg-clahe')
+    parser.add_argument('--item_list', type=str, nargs="+", default=['region1', 'region2'], help="输入任意个数据，用空格分隔")
+    parser.add_argument('--save_dir', type=str, default='saved_test')
+    parser.add_argument('--weight', type=str, default='model.pth', help="模型转换结果会保存在这个模型路径下")
     args = parser.parse_args()
-
-    item_list = ['pdseg-clahe-region']
 
     image_size = (512, 512)
 
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-    test(item_list, image_size)
+    test(args.item_list, image_size)
