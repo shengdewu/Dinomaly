@@ -84,15 +84,11 @@ def setup_seed(seed):
     torch.backends.cudnn.benchmark = False
 
 
-def train(item_list, save_path, image_size=(512, 512)):
+def train(item_list, save_path, image_size=(512, 512), total_iters=20000, batch_size=16, lr=2e-4, num_workers=6):
     setup_seed(1)
 
-    total_iters = 20000
     check = 1000
-    batch_size = 16
-    lr = 2e-4
     save_iter = 10000
-    num_workers = 6
 
     data_transform, gt_transform = get_data_transforms(image_size)
 
@@ -283,6 +279,11 @@ if __name__ == '__main__':
     parser.add_argument('--save_dir', type=str, default='./saved_results')
     parser.add_argument('--save_name', type=str, default='vitill_mvtec_uni_dinov3_base')
     parser.add_argument('--item_list', type=str, nargs="+", default=['region1', 'region2'], help="输入任意个数据，用空格分隔")
+    parser.add_argument('--total_iters', type=int, default=20000)
+    parser.add_argument('--batch_size', type=int, default=16)
+    parser.add_argument('--num_workers', type=int, default=6)
+    parser.add_argument('--lr', type=float, default=2e-4)
+
     args = parser.parse_args()
 
     image_size = (512, 512)
@@ -298,5 +299,6 @@ if __name__ == '__main__':
     print_fn = logger.info
 
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-    print_fn(device)
-    train(args.item_list, save_path, image_size)
+    print_fn(f'{args}-{device}')
+    train(args.item_list, save_path, image_size,
+          total_iters=args.total_iters, batch_size=args.batch_size, lr=args.lr, num_workers=args.num_workers)

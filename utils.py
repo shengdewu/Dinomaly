@@ -8,7 +8,6 @@ from torch.nn import functional as F
 from sklearn.metrics import roc_auc_score, f1_score, recall_score, accuracy_score, precision_recall_curve, \
     average_precision_score
 import cv2
-import matplotlib.pyplot as plt
 from sklearn.metrics import auc
 from skimage import measure
 import pandas as pd
