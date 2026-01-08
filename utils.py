@@ -521,7 +521,7 @@ def evaluation_uniad(model, dataloader, device, _class_=None, reg_calib=False, m
     return auroc_px, auroc_sp, ap_px, ap_sp, [gt_list_px, pr_list_px, gt_list_sp, pr_list_sp]
 
 
-def visualize(model, dataloader, device, save_path='save', max_ratio=0.01):
+def visualize(model, dataloader, item, device, save_path='save', max_ratio=0.01):
     model.eval()
     save_dir = os.path.join(save_path, 'visualize')
     os.makedirs(save_dir, exist_ok=True)
@@ -572,7 +572,7 @@ def visualize(model, dataloader, device, save_path='save', max_ratio=0.01):
                 cv2.imwrite(save_dir + '/' + name + '_heat.png', show)
                 results.append((name, fake, label[i], max_anomal))
 
-    with open(f'{save_dir}/result.csv', mode='w') as f:
+    with open(f'{save_dir}/item-result.csv', mode='w') as f:
         f.write('name,fake,label,max_anomal\n')
         for name, fake, label, max_anomal in results:
             f.write(f'{name},{fake:.3f},{label},{max_anomal:.3f}\n')

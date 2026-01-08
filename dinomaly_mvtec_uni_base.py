@@ -87,7 +87,7 @@ def setup_seed(seed):
 def train(item_list, save_path, image_size=(512, 512), total_iters=20000, batch_size=16, lr=2e-4, num_workers=6):
     setup_seed(1)
 
-    check = 1000
+    check = 20000
     save_iter = 10000
 
     data_transform, gt_transform = get_data_transforms(image_size)
@@ -265,7 +265,7 @@ def train(item_list, save_path, image_size=(512, 512), total_iters=20000, batch_
         test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=False,
                                                       num_workers=2)
 
-        visualize(model, test_dataloader, device, save_path=save_path)
+        visualize(model, test_dataloader, item, device, save_path=save_path)
 
     torch.save(model.state_dict(), os.path.join(save_path, 'model.pth'))
     return
